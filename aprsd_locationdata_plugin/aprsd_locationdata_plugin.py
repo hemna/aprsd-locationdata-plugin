@@ -1,18 +1,13 @@
 import logging
 import re
-import time
-import datetime
 
-from geopy.geocoders import ArcGIS, AzureMaps, Baidu, Bing, GoogleV3
-from geopy.geocoders import HereV7, Nominatim, OpenCage, TomTom, What3WordsV3, Woosmap
-
-from oslo_config import cfg
-from aprsd import packets, plugin, threads, utils, plugin_utils
+from aprsd import packets, plugin, plugin_utils
 from aprsd.utils import trace
-from aprsd.plugins import location as aprsd_location
+from oslo_config import cfg
 
 import aprsd_locationdata_plugin
 from aprsd_locationdata_plugin import conf  # noqa
+
 
 CONF = cfg.CONF
 LOG = logging.getLogger("APRSD")
@@ -24,7 +19,7 @@ class LocationDataPlugin(plugin.APRSDRegexCommandPluginBase, plugin.APRSFIKEYMix
     # Change this regex to match for your plugin's command
     # Tutorial on regex here: https://regexone.com/
     # Look for any command that starts with w or W
-    command_regex = r"^([l]|[l]\s|location)"
+    command_regex = r"^([ld]|[ld]\s)"
     command_name = "location data"
     # the command is for ?
     # Change this value to a 1 word description of the plugin
@@ -92,9 +87,9 @@ class LocationDataPlugin(plugin.APRSDRegexCommandPluginBase, plugin.APRSFIKEYMix
             alt = float(aprs_data["entries"][0]["altitude"])
         except Exception:
             alt = 0
-        altfeet = int(alt * 3.28084)
-        course = aprs_data["entries"][0].get("course",0)
-        speed = aprs_data["entries"][0].get("speed",0)
+        # int(alt * 3.28084)
+        course = aprs_data["entries"][0].get("course", 0)
+        speed = aprs_data["entries"][0].get("speed", 0)
         aprs_lasttime_seconds = aprs_data["entries"][0]["lasttime"]
 
         # Format is
