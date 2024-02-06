@@ -98,9 +98,9 @@ class LocationDataPlugin(plugin.APRSDRegexCommandPluginBase, plugin.APRSFIKEYMix
             searchcall,
             f"{lat:0.5f}",
             f"{lon:0.5f}",
-            f"{alt:0.0f}",
-            f"{course:0.0f}",
-            f"{speed:0.1f}",
+            f"{float(alt):0.0f}",
+            f"{float(course):0.0f}",
+            f"{float(speed):0.1f}",
             aprs_lasttime_seconds,
         ).rstrip()
 
