@@ -94,7 +94,7 @@ class LocationDataPlugin(plugin.APRSDRegexCommandPluginBase, plugin.APRSFIKEYMix
 
         # Format is
         # callsign:latitude,longitude,altitude,course,speed,timestamp
-        reply = "{}:{},{},{},{},{},{}".format(
+        reply = "^ld^{}:{},{},{},{},{},{}".format(
             searchcall,
             f"{lat:0.5f}",
             f"{lon:0.5f}",
