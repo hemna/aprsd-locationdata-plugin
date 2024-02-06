@@ -1,8 +1,15 @@
 import logging
+import re
+import time
+import datetime
+
+from geopy.geocoders import ArcGIS, AzureMaps, Baidu, Bing, GoogleV3
+from geopy.geocoders import HereV7, Nominatim, OpenCage, TomTom, What3WordsV3, Woosmap
 
 from oslo_config import cfg
-from aprsd import packets, plugin, threads, utils
+from aprsd import packets, plugin, threads, utils, plugin_utils
 from aprsd.utils import trace
+from aprsd.plugins import location as aprsd_location
 
 import aprsd_locationdata_plugin
 from aprsd_locationdata_plugin import conf  # noqa
@@ -11,28 +18,22 @@ CONF = cfg.CONF
 LOG = logging.getLogger("APRSD")
 
 
-class LocationDataPlugin(plugin.APRSDRegexCommandPluginBase):
+class LocationDataPlugin(plugin.APRSDRegexCommandPluginBase, plugin.APRSFIKEYMixin):
 
     version = aprsd_locationdata_plugin.__version__
     # Change this regex to match for your plugin's command
     # Tutorial on regex here: https://regexone.com/
     # Look for any command that starts with w or W
-    command_regex = "^[wW]"
+    command_regex = r"^([l]|[l]\s|location)"
+    command_name = "location data"
     # the command is for ?
     # Change this value to a 1 word description of the plugin
     # this string is used for help
-    command_name = "weather"
-
+    short_description = "Where in the world is a CALLSIGN's last GPS beacon?"
     enabled = False
 
     def setup(self):
-        """Allows the plugin to do some 'setup' type checks in here.
-
-        If the setup checks fail, set the self.enabled = False.  This
-        will prevent the plugin from being called when packets are
-        received."""
-        # Do some checks here?
-        self.enabled = True
+        self.ensure_aprs_fi_key()
 
     def create_threads(self):
         """This allows you to create and return a custom APRSDThread object.
@@ -59,9 +60,53 @@ class LocationDataPlugin(plugin.APRSDRegexCommandPluginBase):
         matches in the contents of the packet["message_text"]."""
 
         LOG.info("LocationDataPlugin Plugin")
+        fromcall = packet.from_call
+        message = packet.get("message_text", None)
 
-        from_callsign = packet.from_call
-        message = packet.message_text
+        api_key = CONF.aprs_fi.apiKey
 
-        # Now we can process
-        return "some reply message"
+        # optional second argument is a callsign to search
+        a = re.search(r"^.*\s+(.*)", message)
+        if a is not None:
+            searchcall = a.group(1)
+            searchcall = searchcall.upper()
+        else:
+            # if no second argument, search for calling station
+            searchcall = fromcall
+
+        try:
+            aprs_data = plugin_utils.get_aprs_fi(api_key, searchcall)
+        except Exception as ex:
+            LOG.error(f"Failed to fetch aprs.fi '{ex}'")
+            return "Failed to fetch aprs.fi location"
+
+        LOG.debug(f"LocationPlugin: aprs_data = {aprs_data}")
+        if not len(aprs_data["entries"]):
+            LOG.error("Didn't get any entries from aprs.fi")
+            return f"{searchcall}:None"
+
+        lat = float(aprs_data["entries"][0]["lat"])
+        lon = float(aprs_data["entries"][0]["lng"])
+
+        try:  # altitude not always provided
+            alt = float(aprs_data["entries"][0]["altitude"])
+        except Exception:
+            alt = 0
+        altfeet = int(alt * 3.28084)
+        course = aprs_data["entries"][0].get("course",0)
+        speed = aprs_data["entries"][0].get("speed",0)
+        aprs_lasttime_seconds = aprs_data["entries"][0]["lasttime"]
+
+        # Format is
+        # callsign:latitude,longitude,altitude,course,speed,timestamp
+        reply = "{}:{},{},{},{},{},{}".format(
+            searchcall,
+            f"{lat:0.5f}",
+            f"{lon:0.5f}",
+            f"{alt:0.0f}",
+            f"{course:0.0f}",
+            f"{speed:0.1f}",
+            aprs_lasttime_seconds,
+        ).rstrip()
+
+        return reply
