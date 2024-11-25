@@ -78,7 +78,9 @@ class LocationDataPlugin(plugin.APRSDRegexCommandPluginBase, plugin.APRSFIKEYMix
         LOG.debug(f"LocationPlugin: aprs_data = {aprs_data}")
         if not len(aprs_data["entries"]):
             LOG.error("Didn't get any entries from aprs.fi")
-            return f"^ld^{searchcall}:None"
+            LOG.error("Not returning anything now to prevent existing webchat from having problems.")
+            return packets.NULL_MESSAGE
+            # return f"^ld^{searchcall}:None"
 
         lat = float(aprs_data["entries"][0]["lat"])
         lon = float(aprs_data["entries"][0]["lng"])
